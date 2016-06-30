@@ -1,0 +1,19 @@
+-Get dropdowns to list all
+-Plus in options adds item to appropriate place in itinerary - puts a marker on map 
+-X next to activity/hotel/restaurant deletes item
+-Day buttons toggle between days
+-You can add an extra day button using the plus 
+-when you delete a day, everything shifts over to fill that day
+
+By the time you've completed this workshop, Trip Planner users should be able to:
+
+Select and set the hotel
+Select and add a restaurant
+Select and add an activity
+Remove the hotel
+Remove a restaurant
+Remove an activity
+Add a day
+Remove a day
+Switch days
+These changes should be reflected in 1) the side panel, and 2) the map. Both should update live as the user edits their plans or switches between days.
