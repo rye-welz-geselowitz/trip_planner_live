@@ -55,7 +55,6 @@ $(function () {
  	for(var i = 0; i < listOfAttractions.length; i++) {
  		if (listOfAttractions[i].id === item.id) {
  			dayArr[dayIndex][category].splice(i, 1);
- 			console.log('dayArr', dayArr);
  			break;
  		}
  	}
@@ -127,10 +126,22 @@ $(function () {
 	$('#activitiesListId').empty();
 	//Add the new stuff
 	var currentDay=getCurrentDay();
+	// hotels
 	var hotelsArr=dayArr[currentDay]['hotels'] || [];
-	for(var i=0;i<hotelsArr;i++){
-		document.getElementById('#hotelListId').appendChild(hotelsArr[i]);
+	for(var i=0;i<hotelsArr.length;i++){
+		document.getElementById('hotelListId').appendChild(hotelsArr[i]);
 	}
+	// restaurants
+	var restaurantsArr=dayArr[currentDay]['restaurants'] || [];
+	for(var i=0;i<restaurantsArr.length;i++){
+		document.getElementById('restaurantListId').appendChild(restaurantsArr[i]);
+	}
+	// activities
+	var activitiesArr=dayArr[currentDay]['activities'] || [];
+	for(var i=0;i<activitiesArr.length;i++){
+		document.getElementById('activitiesListId').appendChild(activitiesArr[i]);
+	}
+	$('#displayed-day').text("Day "+$(targetDay).text());
   }
 
 
@@ -151,10 +162,45 @@ $(function () {
 	var element = document.createElement('BUTTON');
     var textnode = document.createTextNode(days.toString());
     element.appendChild(textnode);
+    $(element).addClass('btn btn-circle day-btn');
     switchDay(element);
   	$(element).insertBefore($(this));
   });
 
+//Remove a day
+ $('#day-killer').on('click', function () {
+ 	if (days >= 1) {
+ 		days--;
+ 	}
+ 	//remove the actual button
+ 	//grab the thing before it
+ 	var target;
+ 	var dayToDelete=getCurrentDay();
+ 	if($('.current-day').prev()[0]){
+ 		console.log('there are previous buttons');
+ 		target=$('.current-day').prev();
+ 	}
+ 	else{
+ 		if($('.current-day').next().id !== 'day-add'){
+ 			console.log('there is no prev but there are next');
+ 			target=$('.current-day').next();
+ 		}
+ 		else{
+ 			console.log('there is only the add button')
+ 			target=$('.current-day');
+ 		}
+ 	}
+ 	$('.day-btn:nth-last-child(2)').remove();
+ 	//switch the view to another day & display
+
+ 	//set the array for that day to {}
+ 	dayArr.splice(dayToDelete,1);
+
+ 	switchDay(target);
+
+
+
+ });
 
 
 
