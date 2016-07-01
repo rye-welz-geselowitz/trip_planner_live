@@ -1,25 +1,11 @@
 $(function () {
+  //Data
   var map = initializeMap();
-
   var containerToInfo={hotelOptionsContainer:["hotels", "hotelListId"],restaurantOptionsContainer:["restaurants","restaurantListId"],activitiesOptionsContainer:["activities","activitiesListId"]};
   var days=1;
   var itemId = 0;
-  //var currentDay = 1;
   var dayArr = [{}, {}];
-  // [{hotels: [hotel1, hotel2], restaurants: []...}, {hotels...}]
-
-//Helper function adding element to parent
-
-  function addElement(elementType,text,idOfParent,classes){
-      var element = document.createElement(elementType);
-      var textnode = document.createTextNode(text);
-      element.appendChild(textnode);
-      for(var i=0;i<classes.length;i++){
-        $(element).addClass(classes[i]);
-      }
-      document.getElementById(idOfParent).appendChild(element);
-      return element;
-  }
+  var noDaySelected=false;
 
   //Adding options - creates the dropdown menues
   // loop through each of the categories and create an option element, then append it to the appropriate parent, ie hotels, restaurants etc. 
@@ -32,6 +18,19 @@ $(function () {
   addOptions(restaurants, 'restaurant-choices');
   addOptions(activities, 'activity-choices');
 
+  //Helper function adding element to parent
+  function addElement(elementType,text,idOfParent,classes){
+      var element = document.createElement(elementType);
+      var textnode = document.createTextNode(text);
+      element.appendChild(textnode);
+      for(var i=0;i<classes.length;i++){
+        $(element).addClass(classes[i]);
+      }
+      document.getElementById(idOfParent).appendChild(element);
+      return element;
+  }
+
+  //Helper function getting coordinates
   function getCoordinates (category, val) {
   	for(var i = 0; i < category.length; i++) {
 	  	if(category[i].name === val) {
@@ -39,7 +38,7 @@ $(function () {
 	  	}
     }
   }
-
+  //Helper function adding to itinerary object (dayArr)
   function addToItinerary (category, item, dayIndex) {
   	item.id = itemId;
   	itemId++;
@@ -50,28 +49,19 @@ $(function () {
   	}
   }
 
+  //Helper function removing from itinerary object (dayArr)
  function removeFromItinerary (category, item, dayIndex) {
- 	var listOfAttractions = dayArr[dayIndex][category];
- 	for(var i = 0; i < listOfAttractions.length; i++) {
- 		if (listOfAttractions[i].id === item.id) {
- 			dayArr[dayIndex][category].splice(i, 1);
- 			break;
- 		}
- 	}
+ 	var listOfAttractions = dayArr[dayIndex][category] || [];
+   	for(var i = 0; i < listOfAttractions.length; i++) {
+   		if (listOfAttractions[i].id === item.id) {
+   			dayArr[dayIndex][category].splice(i, 1);
+   			break;
+   		}
+   	}
   }
 
-  //Event Handlers - adds items to itinerary
-  $(".btn").on("click",function(){
-    var optionsContainer;
-    var select;
-    var val;
-    //check that it's an add button
-    if($(this).data("action")==="add"){
-      //Get the data that we clicked on
-      optionsContainer=$(this).parent(); 
-      select=$(optionsContainer).children()[1];
-      val=$(select).val(); // a string e.g. 'Andaz Wall Street'
-      //Create the list item, including its children
+  //Helper function generates appropriate element
+  function generateElement(val){
       var element = document.createElement('DIV');
       $(element).addClass('itinerary-item');
       var spanElement = document.createElement('SPAN');
@@ -84,6 +74,12 @@ $(function () {
       $(newButton).addClass('btn btn-xs btn-danger remove btn-circle');
       element.appendChild(spanElement);
       element.appendChild(newButton);
+      return element;
+  }
+
+  //Helper function: Adds an item to itinerary
+   function addItemToItinerary(optionsContainer,val,shouldUpdateModel){
+      element=generateElement(val);
       //Append the list item to the correct category in itinerary
       var info = containerToInfo[$(optionsContainer).attr('id')];
       var listId=info[1];
@@ -95,67 +91,102 @@ $(function () {
       document.getElementById(listId).appendChild(element);
       //Add to itinerary
       var currentDay=getCurrentDay();
-      addToItinerary(info[0],element,currentDay);
-    } 
-
-  });
-
-  function getCurrentDay(){
-  	return Number($('.current-day').text());
+      if(shouldUpdateModel){
+        addToItinerary(info[0],element,currentDay);
+      }
   }
+
+  //Helper function: Removes item from itinerary
+  function removeItemFromItinerary(item,category,currentDay){
+      removeFromItinerary(category,item[0],currentDay);
+      item.data('marker').setMap(null);
+      item.remove();  
+  }
+
+  //Helper function that empties an itinerary category
+  function empty(id,category,currentDay){
+    var children=$(id).children();
+    for(var i=0;i<children.length;i++){
+      removeItemFromItinerary($(children[i]),category,currentDay);
+    }
+  }
+
+  //Helper function that populates an itinerary category
+  function populate(id,category,currentDay){
+      var categoryArr=dayArr[currentDay][category] || [];
+      var val;
+      for(var i=0;i<categoryArr.length;i++){
+         val=$(categoryArr[i]).find("span").text();
+         addItemToItinerary($(id),val,false);
+      }
+  }
+  //Helper function: switches days
+  function switchDay (targetDay,add) {
+      //Sets the current-day class
+    $('.current-day').removeClass('current-day');
+    $(targetDay).addClass('current-day');
+    var currentDay=$(targetDay).text();
+
+    //Empty the itinerary
+    empty('#hotelListId','hotels',currentDay);
+    empty('#restaurantListId','restaurants',currentDay);
+    empty('#activitiesListId','activities',currentDay);
+    //Add the new stuff
+    if(add){
+      populate('#hotelOptionsContainer','hotels',currentDay);
+      populate('#restaurantOptionsContainer','restaurants',currentDay);
+      populate('#activitiesOptionsContainer','activities',currentDay);
+      $('#displayed-day').text("Day "+$(targetDay).text());
+    }
+  }
+
+  //Helper function: gets current day
+  function getCurrentDay(){
+    return Number($('.current-day').text());
+  }
+
+  //Event Handlers
+
+  //adds items to itinerary
+  $(".btn").on("click",function(){
+    var optionsContainer;
+    var select;
+    var val;
+    //check that it's an add button
+    if($(this).data("action")==="add"&&(!noDaySelected)){
+      //Get the data that we clicked on
+      optionsContainer=$(this).parent(); 
+      select=$(optionsContainer).children()[1];
+      val=$(select).val(); // a string e.g. 'Andaz Wall Street'
+      addItemToItinerary(optionsContainer,val,true);
+    } 
+  });
 
   // Removes items from itinerary and from map
   $('.list-group').on('click', '.remove', function () {
   // handle it here        
   	  var category=$(this).parent().data('category');
+  	  var item=$(this).parent();
   	  var currentDay=getCurrentDay();
-  	  removeFromItinerary(category,$(this).parent()[0],currentDay);
-      $(this).parent().data('marker').setMap(null);
-  	  $(this).parent().remove();
+  	  removeItemFromItinerary(item,category,currentDay);
+
   });
 
-  //Switching days
-  function switchDay (targetDay) {
-  	//Sets the current-day class
-	$('.current-day').removeClass('current-day');
-	$(targetDay).addClass('current-day');
-	//Displaying the correct itinerary
-	//Empty the itinerary
-	$('#hotelListId').empty();
-	$('#restaurantListId').empty();
-	$('#activitiesListId').empty();
-	//Add the new stuff
-	var currentDay=getCurrentDay();
-	// hotels
-	var hotelsArr=dayArr[currentDay]['hotels'] || [];
-	for(var i=0;i<hotelsArr.length;i++){
-		document.getElementById('hotelListId').appendChild(hotelsArr[i]);
-	}
-	// restaurants
-	var restaurantsArr=dayArr[currentDay]['restaurants'] || [];
-	for(var i=0;i<restaurantsArr.length;i++){
-		document.getElementById('restaurantListId').appendChild(restaurantsArr[i]);
-	}
-	// activities
-	var activitiesArr=dayArr[currentDay]['activities'] || [];
-	for(var i=0;i<activitiesArr.length;i++){
-		document.getElementById('activitiesListId').appendChild(activitiesArr[i]);
-	}
-	$('#displayed-day').text("Day "+$(targetDay).text());
-  }
 
+  //Switching days
 
   $('#day-buttons').on('click','.day-btn',function(){
   	if(this.id!=="day-add"){
-  		switchDay(this);
+  		switchDay(this,true);
     }
   })
 
 
   // Adding days to itinerary - clicking on '+' button
   $('#day-add').on('click', function () {
+   	$('#day-killer').show();
   	days++;
-  	//var element=addElement('BUTTON',days.toString(),'day-buttons',['btn btn-circle day-btn current-day']);
+    noDaySelected=false;
   	if (!dayArr[days]) {
   		dayArr[days] = {};	
   	} 
@@ -163,7 +194,7 @@ $(function () {
     var textnode = document.createTextNode(days.toString());
     element.appendChild(textnode);
     $(element).addClass('btn btn-circle day-btn');
-    switchDay(element);
+    switchDay(element,true);
   	$(element).insertBefore($(this));
   });
 
@@ -177,36 +208,27 @@ $(function () {
  	var target;
  	var dayToDelete=getCurrentDay();
  	if($('.current-day').prev()[0]){
- 		console.log('there are previous buttons');
  		target=$('.current-day').prev();
  	}
  	else{
- 		if($('.current-day').next().id !== 'day-add'){
- 			console.log('there is no prev but there are next');
- 			target=$('.current-day').next();
- 		}
- 		else{
- 			console.log('there is only the add button')
- 			target=$('.current-day');
- 		}
+ 		target=$('.current-day');
  	}
  	$('.day-btn:nth-last-child(2)').remove();
  	//switch the view to another day & display
 
  	//set the array for that day to {}
- 	dayArr.splice(dayToDelete,1);
-
- 	switchDay(target);
-
-
-
+  if(dayArr.length===2){
+    noDaySelected=true;
+    switchDay(target,false);
+    $('#displayed-day').text("No Day Selected");
+    $('#day-killer').hide();  
+  }
+  dayArr.splice(dayToDelete,1);
+ 	if(dayArr.length!==1){
+    switchDay(target,true);
+  }
  });
-
-
-
 })
 
-
-//marker.setMap(null)
 
 
